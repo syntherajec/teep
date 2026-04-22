@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelForge — Bulk Image Processor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+
+<header class="header">
+  <div class="logo-wrap">
+    <img src="assets/logo.png" alt="PixelForge" class="logo-img" />
+    <div class="logo-text">
+      <span class="logo-name">PixelForge</span>
+      <span class="logo-tag">Bulk Image AI</span>
+    </div>
+  </div>
+  <div class="header-badge">100% Client-Side · No Upload · No Server</div>
+</header>
+
+<main class="container">
+
+  <!-- UPLOAD ZONE -->
+  <section class="card upload-card" id="uploadSection">
+    <div class="card-label">01 — UPLOAD</div>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M24 6L24 32M24 6L16 14M24 6L32 14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M8 36V40C8 41.1 8.9 42 10 42H38C39.1 42 40 41.1 40 40V36" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <p class="drop-title">Drop images here or <label for="fileInput" class="drop-link">browse files</label></p>
+      <p class="drop-sub">PNG, JPG, WEBP · Multiple files supported</p>
+      <input type="file" id="fileInput" multiple accept="image/*" style="display:none" />
+    </div>
+
+    <div class="file-list" id="fileList" style="display:none">
+      <div class="file-list-header">
+        <span id="fileCount">0 files selected</span>
+        <button class="btn-ghost" id="clearFiles">Clear all</button>
+      </div>
+      <div class="file-items" id="fileItems"></div>
+    </div>
+  </section>
+
+  <!-- PROCESSING OPTIONS -->
+  <section class="card options-card">
+    <div class="card-label">02 — OPTIONS</div>
+    <div class="options-grid">
+
+      <div class="option-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="removeBgCheck" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="option-title">Remove Background</span>
+        </label>
+        <p class="option-desc">AI-powered background removal using U²Net</p>
+        <div class="option-sub" id="removeBgSub">
+          <span class="model-badge">U²Net ONNX</span>
+          <span class="output-badge">Output: PNG + Alpha</span>
+        </div>
+        <div class="option-note" id="removeBgNote" style="display:none">
+          ⚠ Real ONNX model not loaded — using smart color-based fallback
+        </div>
+      </div>
+
+      <div class="option-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="upscaleCheck" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="option-title">AI Upscale</span>
+        </label>
+        <p class="option-desc">Real-ESRGAN super-resolution upscaling</p>
+        <div class="option-sub">
+          <div class="select-group">
+            <label class="select-label">Scale</label>
+            <select id="upscaleSelect" class="styled-select">
+              <option value="1">1x (off)</option>
+              <option value="2" selected>2x</option>
+              <option value="4">4x</option>
+              <option value="8">8x</option>
+            </select>
+          </div>
+          <div class="select-group">
+            <label class="select-label">Model</label>
+            <select id="upscaleModel" class="styled-select">
+              <option value="x2">Real-ESRGAN x2</option>
+              <option value="x4">Real-ESRGAN x4</option>
+              <option value="anime">Anime x4</option>
+            </select>
+          </div>
+        </div>
+        <div class="option-note" id="upscaleNote" style="display:none">
+          ⚠ Real ONNX model not loaded — using bicubic upscaling fallback
+        </div>
+      </div>
+
+      <div class="option-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="resizeCheck" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="option-title">Resize / Aspect Ratio</span>
+        </label>
+        <p class="option-desc">Crop or resize to specific dimensions</p>
+        <div class="option-sub">
+          <div class="select-group">
+            <label class="select-label">Ratio</label>
+            <select id="ratioSelect" class="styled-select">
+              <option value="original">Original</option>
+              <option value="1:1">1:1 (Square)</option>
+              <option value="3:4">3:4 (Portrait)</option>
+              <option value="4:3">4:3 (Landscape)</option>
+              <option value="9:16">9:16 (Story)</option>
+              <option value="16:9">16:9 (Widescreen)</option>
+            </select>
+          </div>
+          <div class="select-group">
+            <label class="select-label">Max Width (px)</label>
+            <input type="number" id="maxWidth" class="styled-input" value="1920" min="64" max="8192" />
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PROCESS & QUEUE -->
+  <section class="card process-card">
+    <div class="card-label">03 — PROCESS</div>
+
+    <div class="process-controls">
+      <button class="btn-primary" id="startBtn" disabled>
+        <span class="btn-icon">▶</span>
+        Start Processing
+      </button>
+      <button class="btn-download" id="downloadBtn" disabled>
+        <span class="btn-icon">↓</span>
+        Download ZIP
+      </button>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap" style="display:none">
+      <div class="progress-header">
+        <span id="progressLabel">Processing...</span>
+        <span id="progressCount">0 / 0</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-sub" id="progressSub">Initializing...</div>
+    </div>
+
+    <div class="queue-wrap" id="queueWrap" style="display:none">
+      <div class="queue-header">Queue</div>
+      <div class="queue-list" id="queueList"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>PixelForge · Full client-side · No data ever leaves your browser</span>
+  <span class="footer-sep">·</span>
+  <span>GitHub Pages compatible</span>
+</footer>
+
+<!-- ① Configure ORT WASM paths before loading the library -->
+<script>
+  // Tell onnxruntime-web where to find the .wasm files
+  // This must run before ort.min.js is loaded
+  window._ORT_WASM_PATH = './libs/';
+</script>
+
+<!-- ② Core libraries (synchronous, global scope) -->
+<script src="libs/jszip.min.js"></script>
+<script src="libs/onnxruntime-web.min.js"></script>
+
+<!-- ③ Set ORT wasm path after library loads -->
+<script>
+  if (typeof ort !== 'undefined') {
+    ort.env.wasm.wasmPaths = './libs/';
+    ort.env.wasm.numThreads = 1;
+    ort.env.wasm.simd = false;
+    console.log('[PixelForge] ONNX Runtime ready, wasm → ./libs/');
+  } else {
+    console.warn('[PixelForge] ONNX Runtime not loaded — AI features will use fallback');
+  }
+</script>
+
+<!-- ④ App entry point (ES module) -->
+<script type="module" src="main.js"></script>
+
+</body>
+</html>
