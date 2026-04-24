@@ -1,8 +1,6 @@
 /**
- * removeBg.js — PRO SHARP + NO BLACK HALO (FIXED)
+ * removeBg.js — PRO SHARP + NO WHITE HALO
  * Target: Logo / Merch / Teepublic
- * Fix: Auto-detect background color (support hitam/putih/warna apapun)
- * Fix: Threshold fallback dinaikkan agar pinggiran gelap ikut terhapus
  */
 
 let u2netSession = null;
@@ -103,28 +101,20 @@ function computeFallbackAlpha(imageData) {
   const { width, height, data } = imageData;
   const N = width * height;
 
-  // ✅ FIX: Deteksi warna background dari semua tepi (atas, bawah, kiri, kanan)
   let bgR = 0, bgG = 0, bgB = 0, count = 0;
 
-  // Tepi atas & bawah
   for (let x = 0; x < width; x++) {
     const i1 = x * 4;
     const i2 = ((height - 1) * width + x) * 4;
 
-    bgR += data[i1] + data[i2];
-    bgG += data[i1 + 1] + data[i2 + 1];
-    bgB += data[i1 + 2] + data[i2 + 2];
-    count += 2;
-  }
+    bgR += data[i1];
+    bgG += data[i1 + 1];
+    bgB += data[i1 + 2];
 
-  // Tepi kiri & kanan
-  for (let y = 1; y < height - 1; y++) {
-    const i1 = y * width * 4;
-    const i2 = (y * width + width - 1) * 4;
+    bgR += data[i2];
+    bgG += data[i2 + 1];
+    bgB += data[i2 + 2];
 
-    bgR += data[i1] + data[i2];
-    bgG += data[i1 + 1] + data[i2 + 1];
-    bgB += data[i1 + 2] + data[i2 + 2];
     count += 2;
   }
 
@@ -145,8 +135,7 @@ function computeFallbackAlpha(imageData) {
       (b - bgB) ** 2
     );
 
-    // ✅ FIX: Threshold dinaikkan 35 → 60 agar pinggiran gelap ikut terhapus
-    alpha[i] = dist > 60 ? 1 : 0;
+    alpha[i] = dist > 35 ? 1 : 0;
   }
 
   return alpha;
@@ -158,38 +147,24 @@ function postProcessPro(rawAlpha, imageData) {
   const N = width * height;
 
   const output = new ImageData(new Uint8ClampedArray(data), width, height);
+
   const alpha = new Float32Array(N);
 
-  /* 1. SMOOTH EDGE (ANTI JAGGED TANPA BLUR) */
+  /* 1. HARD + SMOOTH EDGE (ANTI JAGGED TANPA BLUR) */
   for (let i = 0; i < N; i++) {
     const a = rawAlpha[i];
 
     if (a > 0.6) alpha[i] = 1;
     else if (a < 0.3) alpha[i] = 0;
     else {
+      // smooth tipis di edge saja
       alpha[i] = (a - 0.3) / (0.6 - 0.3);
     }
   }
 
-  /* ✅ FIX: Deteksi warna background otomatis dari 4 sudut gambar */
-  const corners = [
-    0,
-    (width - 1),
-    (height - 1) * width,
-    (height - 1) * width + (width - 1)
-  ];
+  /* 2. REMOVE WHITE HALO (PALING PENTING) */
+  let bgR = 255, bgG = 255, bgB = 255;
 
-  let bgR = 0, bgG = 0, bgB = 0;
-  for (const ci of corners) {
-    bgR += data[ci * 4];
-    bgG += data[ci * 4 + 1];
-    bgB += data[ci * 4 + 2];
-  }
-  bgR /= 4;
-  bgG /= 4;
-  bgB /= 4;
-
-  /* 2. REMOVE BACKGROUND COLOR BLEED */
   for (let i = 0; i < N; i++) {
     const a = alpha[i];
 
@@ -202,10 +177,10 @@ function postProcessPro(rawAlpha, imageData) {
     const g = data[i * 4 + 1];
     const b = data[i * 4 + 2];
 
-    // ✅ FIX: Pakai bgR/bgG/bgB dari deteksi otomatis (bukan hardcode 255)
+    // 🔥 REMOVE BACKGROUND COLOR BLEED
     const invA = 1 / Math.max(a, 0.0001);
 
-    output.data[i * 4]     = clamp255((r - bgR * (1 - a)) * invA);
+    output.data[i * 4] = clamp255((r - bgR * (1 - a)) * invA);
     output.data[i * 4 + 1] = clamp255((g - bgG * (1 - a)) * invA);
     output.data[i * 4 + 2] = clamp255((b - bgB * (1 - a)) * invA);
     output.data[i * 4 + 3] = clamp255(a * 255);
@@ -232,7 +207,7 @@ function resizeNN(imageData, tw, th) {
       const si = (sy * sw + sx) * 4;
       const di = (y * tw + x) * 4;
 
-      out[di]     = data[si];
+      out[di] = data[si];
       out[di + 1] = data[si + 1];
       out[di + 2] = data[si + 2];
       out[di + 3] = data[si + 3];
